@@ -1,99 +1,108 @@
 {% extends "base.html" %}
-{% set title = player.name %}
+{% block title %}Clients • Hit4Power{% endblock %}
+{% block header_title %}<h1 class="page-title">Clients</h1>{% endblock %}
+
 {% block content %}
-  <a href="/instructor" class="btn btn-ghost mb-1">← Back to Clients</a>
 
-  <div class="player-header card">
-    <div class="player-id">
-      <div class="avatar">
-        {% if player.image_path %}
-          <img src="{{ player.image_path }}" alt="{{ player.name }}"/>
-        {% else %}
-          <div class="avatar-placeholder">{{ player.name[0] }}</div>
-        {% endif %}
-      </div>
-      <div>
-        <h2 class="player-name">{{ player.name }}</h2>
-        <div class="muted">Login Code: {{ player.login_code }}</div>
-      </div>
-    </div>
-    <button class="star" data-player="{{ player.id }}"><span class="star-shape">★</span></button>
+<section class="panel">
+  <h2>My Clients</h2>
+  <ul id="my-clients-list" class="my-clients">
+    {% if my_clients %}
+      {% for p in my_clients %}
+        <li>
+          <a href="/player?code={{ p.login_code|default('') }}" title="Open as player (requires code on player login)">
+            {{ p.first_name }} {{ p.last_name }}
+          </a>
+          <span class="age-chip">{{ p.age_group }}</span>
+        </li>
+      {% endfor %}
+    {% else %}
+      <li class="muted">No clients starred yet.</li>
+    {% endif %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Create Player</h2>
   </div>
+  <form class="form-grid" action="/instructor/create-player" method="post" enctype="multipart/form-data">
+    <input name="first_name" placeholder="First name" required>
+    <input name="last_name" placeholder="Last name" required>
+    <select name="age_group" required>
+      {% for g in ["7-9","10-12","13-15","16-18","18+"] %}
+      <option value="{{g}}">{{g}}</option>
+      {% endfor %}
+    </select>
+    <input name="email" placeholder="Email">
+    <input name="phone" placeholder="Phone">
+    <input type="file" name="image" accept="image/*">
+    <button class="btn btn-red" type="submit">Create</button>
+  </form>
+</section>
 
-  <div class="grid two">
-    <section class="card">
-      <h3 class="section-title">Add Metrics</h3>
-      <form method="post" action="/metrics/add" class="form">
-        <input type="hidden" name="player_id" value="{{ player.id }}"/>
-        <label>Date</label>
-        <input type="date" name="date" value="{{ (namespace(d=cycler).__class__.__name__ and '') or '' }}" />
-        <label>Exit Velocity</label>
-        <input name="exit_velocity" type="number" step="0.1" placeholder="mph" />
-        <label>Launch Angle</label>
-        <input name="launch_angle" type="number" step="0.1" placeholder="deg" />
-        <label>Spin Rate</label>
-        <input name="spin_rate" type="number" step="0.1" placeholder="rpm" />
-        <button class="btn btn-red">Save</button>
-      </form>
-      <ul class="list mt-1">
-        {% for m in metrics %}
-          <li>{{ m.date|datetimeformat }} — EV: {{ m.exit_velocity or 0 }}, LA: {{ m.launch_angle or 0 }}, SR: {{ m.spin_rate or 0 }}</li>
-        {% else %}
-          <li class="muted">No metrics yet.</li>
+<section class="panel">
+  <h2>Clients by Age Group</h2>
+
+  {% for group, plist in groups.items() %}
+  <div class="age-group">
+    <div class="age-title">{{ group }}</div>
+    {% if plist and plist|length %}
+      <ul class="player-list">
+        {% for player in plist %}
+        <li class="player-row">
+          <button class="fav-btn player-fav {{ 'is-fav' if player.id in fav_ids else '' }}"
+                  data-player-id="{{ player.id }}" aria-label="Toggle favorite">
+            <svg viewBox="0 0 24 24" class="star"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          </button>
+          <span class="player-name">{{ player.first_name }} {{ player.last_name }}</span>
+          <div class="spacer"></div>
+          <a class="btn btn-ghost" href="/player?code={{ player.login_code }}">Manage</a>
+        </li>
         {% endfor %}
       </ul>
-    </section>
-
-    <section class="card">
-      <h3 class="section-title">Coach Notes</h3>
-      <form method="post" action="/notes/add" class="form flex-row">
-        <input type="hidden" name="player_id" value="{{ player.id }}"/>
-        <textarea name="text" rows="2" placeholder="Write a private note to this player" required></textarea>
-        <div class="checks">
-          <label class="check"><input type="checkbox" name="share_with_player"> <span>Share on player dashboard</span></label>
-          <label class="check"><input type="checkbox" name="text_player"> <span>Text player</span></label>
-        </div>
-        <button class="btn btn-red">Add</button>
-      </form>
-      <ul class="list mt-1">
-        {% for n in notes %}
-          <li>
-            <div class="note-text">{{ n.text }}</div>
-            <div class="note-meta">{{ n.created_at|datetimeformat }}{% if n.shared %} • <span class="a-red">Shared</span>{% endif %}</div>
-          </li>
-        {% else %}
-          <li class="muted">No notes yet.</li>
-        {% endfor %}
-      </ul>
-    </section>
+    {% else %}
+      <div class="muted">No players in this group yet.</div>
+    {% endif %}
   </div>
+  {% endfor %}
+</section>
 
-  <section class="card">
-    <h3 class="section-title">Assign a Drill</h3>
-    <form method="post" action="/drills/assign" class="form row">
-      <input type="hidden" name="player_id" value="{{ player.id }}"/>
-      <select name="drill_id" required>
-        <option value="" disabled selected>Select a drill</option>
-        {% for d in drills %}
-          <option value="{{ d.id }}">{{ d.title }}</option>
-        {% endfor %}
-      </select>
-      <input name="note" placeholder="Optional note"/>
-      <button class="btn btn-red">Assign</button>
-    </form>
-  </section>
+{% endblock %}
 
-  <script>
-    // star button on detail
-    const starBtn = document.querySelector('.player-header .star');
-    if (starBtn) {
-      starBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const pid = starBtn.dataset.player;
-        const res = await fetch(`/favorite/${pid}`, { method: 'POST' });
-        const j = await res.json().catch(()=>({}));
-        starBtn.querySelector('.star-shape').classList.toggle('on', j && j.favorited);
-      });
+{% block scripts %}
+<script>
+(function () {
+  function rebuildMyClients(list){
+    const ul = document.getElementById('my-clients-list');
+    if (!ul) return;
+    if (!list || !list.length){
+      ul.innerHTML = '<li class="muted">No clients starred yet.</li>';
+      return;
     }
-  </script>
+    ul.innerHTML = list.map(p =>
+      `<li><a href="/player?code=" title="Open as player">${p.name}</a><span class="age-chip">${p.age_group||''}</span></li>`
+    ).join('');
+  }
+
+  document.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.player-fav');
+    if (!btn) return;
+    const pid = btn.dataset.playerId;
+    btn.disabled = true;
+    try{
+      const res = await fetch(`/instructor/favorite/${pid}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok){
+        btn.classList.toggle('is-fav', !!data.favorited);
+        rebuildMyClients(data.my_clients);
+      }
+    } catch(err){
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
 {% endblock %}
